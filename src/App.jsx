@@ -258,11 +258,19 @@ function App() {
         'base:0x',
         'base:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
       ],
-      windowType: 'MODAL',
-      owner: { address: activeAddress, ...walletActions },
-      funder: { address: activeAddress, ...walletActions },
-    }).catch((error) => {
-      console.log('error.issues', error.issues)
+      userWallet: {
+        getAddress: walletActions.getAddress,
+        signMessage: walletActions.signMessage,
+        signTypedData: walletActions.signTypedData,
+        sendTransaction: walletActions.sendTransaction,
+      },
+      funder: {
+        getAddress: walletActions.getAddress,
+        sendTransaction: walletActions.sendTransaction,
+      },
+      onError: (error) => {
+        console.log('Halliday widget error:', error)
+      },
     })
   }
 
