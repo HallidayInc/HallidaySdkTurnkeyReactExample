@@ -6,7 +6,7 @@ Halliday Payments SDK integration example using a Turnkey wallet. This project u
 
 Get a Turnkey app ID: https://turnkey.com/
 
-Get a Halliday API key: https://halliday.xyz/contact
+Get a free Halliday API key now: https://dashboard.halliday.xyz/
 
 ### Run
 
