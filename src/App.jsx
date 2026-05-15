@@ -128,33 +128,33 @@ function TransactionBody({ tx, chain, erc20Transfer }) {
   )
 }
 
-const headerFor = (kind) =>
-  kind === 'transaction'
-    ? 'Turnkey Wallet Transaction Request'
-    : 'Turnkey Wallet Signature Request'
-
-const subtitleFor = (kind) => {
-  if (kind === 'transaction') {
-    return 'Review the transaction below. Approving will submit it on-chain via your Turnkey embedded wallet.'
-  }
-  if (kind === 'typedData') {
-    return 'Review the EIP-712 typed data below. Your Turnkey embedded wallet will produce this signature.'
-  }
-  return 'Review the message below. Your Turnkey embedded wallet will produce this signature.'
+const MODAL_COPY = {
+  transaction: {
+    header: 'Turnkey Wallet Transaction Request',
+    subtitle: 'Review the transaction below. Approving will submit it on-chain via your Turnkey embedded wallet.',
+    Body: TransactionBody,
+  },
+  typedData: {
+    header: 'Turnkey Wallet Signature Request',
+    subtitle: 'Review the EIP-712 typed data below. Your Turnkey embedded wallet will produce this signature.',
+    Body: TypedDataBody,
+  },
+  message: {
+    header: 'Turnkey Wallet Signature Request',
+    subtitle: 'Review the message below. Your Turnkey embedded wallet will produce this signature.',
+    Body: MessageBody,
+  },
 }
 
 function ApprovalModal({ request, onApprove, onDeny }) {
+  const { header, subtitle, Body } = MODAL_COPY[request.kind]
   return (
     <div className="sig-modal-overlay" role="dialog" aria-modal="true">
       <div className="sig-modal">
-        <h2>{headerFor(request.kind)}</h2>
-        <p className="sig-modal-subtitle">{subtitleFor(request.kind)}</p>
+        <h2>{header}</h2>
+        <p className="sig-modal-subtitle">{subtitle}</p>
 
-        {request.kind === 'typedData' && <TypedDataBody typedData={request.typedData} />}
-        {request.kind === 'message' && <MessageBody message={request.message} />}
-        {request.kind === 'transaction' && (
-          <TransactionBody tx={request.tx} chain={request.chain} erc20Transfer={request.erc20Transfer} />
-        )}
+        <Body {...request} />
 
         <div className="sig-modal-actions">
           <button className="sig-deny" onClick={onDeny}>Reject</button>
@@ -235,14 +235,7 @@ function App() {
           nonce: tx.nonce,
         })
         const receipt = await publicClient.waitForTransactionReceipt({ hash })
-        return {
-          transactionHash: receipt.transactionHash,
-          blockHash: receipt.blockHash,
-          blockNumber: Number(receipt.blockNumber),
-          from: receipt.from,
-          to: receipt.to,
-          rawReceipt: receipt,
-        }
+        return { ...receipt, blockNumber: Number(receipt.blockNumber), rawReceipt: receipt }
       },
     }
   }
@@ -258,16 +251,8 @@ function App() {
         'base:0x',
         'base:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
       ],
-      userWallet: {
-        getAddress: walletActions.getAddress,
-        signMessage: walletActions.signMessage,
-        signTypedData: walletActions.signTypedData,
-        sendTransaction: walletActions.sendTransaction,
-      },
-      funder: {
-        getAddress: walletActions.getAddress,
-        sendTransaction: walletActions.sendTransaction,
-      },
+      userWallet: walletActions,
+      destinationAddress: activeAddress,
       onError: (error) => {
         console.log('Halliday widget error:', error)
       },
