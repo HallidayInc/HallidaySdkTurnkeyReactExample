@@ -9,8 +9,11 @@
     "lint": "eslint .",
     "preview": "vite preview"
   },
+  "overrides": {
+    "ws": "8.21.0"
+  },
   "dependencies": {
-    "@halliday-sdk/payments": "3.1.0",
+    "@halliday-sdk/payments": "3.2.0",
     "@turnkey/react-wallet-kit": "^1.11.0",
     "@turnkey/viem": "^0.13.1",
     "buffer": "^6.0.3",

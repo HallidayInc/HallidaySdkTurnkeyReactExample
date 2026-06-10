@@ -1,7 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTurnkey, AuthState } from '@turnkey/react-wallet-kit'
 import { createAccount } from '@turnkey/viem'
-import { openHallidayPayments } from '@halliday-sdk/payments'
+import {
+  openHallidayPayments,
+  openWithdraw,
+  openActivity,
+  initializeClient,
+} from '@halliday-sdk/payments'
 import {
   createWalletClient,
   createPublicClient,
@@ -13,9 +18,21 @@ import {
   formatUnits,
 } from 'viem'
 import * as chains from 'viem/chains'
+import { DEFAULT_WALLET_NAME, DEFAULT_ETH_ACCOUNT } from './walletConfig.js'
 import './App.css'
 
 const HALLIDAY_PUBLIC_API_KEY = import.meta.env.VITE_HALLIDAY_API_KEY
+
+const tokens = [
+  'base:0x',
+  'base:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+]
+
+initializeClient({
+  apiKey: HALLIDAY_PUBLIC_API_KEY,
+  outputs: tokens,
+  onError: (error) => console.error('Halliday init error:', error),
+})
 
 // Halliday may route sendTransaction to any EVM chain it supports, so resolve
 // the viem chain dynamically from the chainId Halliday passes in.
@@ -166,15 +183,44 @@ function ApprovalModal({ request, onApprove, onDeny }) {
 }
 
 function App() {
-  const { authState, handleLogin, logout, wallets, httpClient, session } = useTurnkey()
+  const {
+    authState,
+    handleLogin,
+    logout,
+    wallets,
+    httpClient,
+    session,
+    createWallet,
+    refreshWallets,
+  } = useTurnkey()
   const [pendingRequest, setPendingRequest] = useState(null)
+  const provisioningRef = useRef(false)
 
+  const isAuthenticated = authState === AuthState.Authenticated
   const embeddedWallet = wallets.find((w) => w.source === 'embedded')
   const activeAddress = embeddedWallet?.accounts[0]?.address
+  const enabled = isAuthenticated && !!activeAddress
 
-  // Stores the request in state and returns a promise the caller awaits. The
-  // modal's Approve/Reject buttons resolve or reject it. Turnkey is only ever
-  // called after a resolve, so a rejection never touches the signer.
+  useEffect(() => {
+    if (!isAuthenticated || embeddedWallet || provisioningRef.current) return
+    provisioningRef.current = true
+    ;(async () => {
+      try {
+        const fresh = await refreshWallets()
+        if (fresh.some((w) => w.source === 'embedded')) return
+        await createWallet({
+          walletName: DEFAULT_WALLET_NAME,
+          accounts: [DEFAULT_ETH_ACCOUNT],
+        })
+        await refreshWallets()
+      } catch (error) {
+        console.error('Failed to provision embedded wallet:', error)
+      } finally {
+        provisioningRef.current = false
+      }
+    })()
+  }, [isAuthenticated, embeddedWallet, createWallet, refreshWallets])
+
   const requestApproval = (request) =>
     new Promise((resolve, reject) => {
       setPendingRequest({ ...request, resolve, reject })
@@ -240,34 +286,39 @@ function App() {
     }
   }
 
-  const launchHalliday = async () => {
-    if (!embeddedWallet || !activeAddress) return
+  const onConnect = () => (isAuthenticated ? logout() : handleLogin())
 
-    const walletActions = await buildWalletActions()
-
+  const onDeposit = async () => {
+    if (!enabled) return
+    const userWallet = await buildWalletActions()
     openHallidayPayments({
-      apiKey: HALLIDAY_PUBLIC_API_KEY,
-      outputs: [
-        'base:0x',
-        'base:0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
-      ],
-      userWallet: walletActions,
+      userWallet,
       destinationAddress: activeAddress,
-      onError: (error) => {
-        console.log('Halliday widget error:', error)
-      },
+      onError: (error) => console.log('Halliday widget error:', error),
     })
   }
 
-  if (authState !== AuthState.Authenticated) {
-    return <button onClick={handleLogin}>Sign in with Turnkey</button>
+  const onWithdraw = async () => {
+    if (!enabled) return
+    const userWallet = await buildWalletActions()
+    openWithdraw({
+      withdrawInputs: tokens,
+      withdrawFunder: userWallet,
+    })
   }
 
+  // Note this cannot be properly called until a userWallet, funder or owner are
+  // provided to initializeClient or openHallidayPayments
+  const onActivity = () => openActivity()
+
   return (
-    <div>
-      <button onClick={logout}>Log out</button>
-      <p>Wallet: {activeAddress || 'Loading...'}</p>
-      <button onClick={launchHalliday}>Open Halliday</button>
+    <div className="halliday-container">
+      <h1>Halliday SDK Turnkey Example</h1>
+      <button onClick={onConnect}>{isAuthenticated ? 'Disconnect' : 'Connect'}</button>
+      <button disabled={!enabled} onClick={onDeposit}>Deposit with Halliday</button>
+      <button disabled={!enabled} onClick={onWithdraw}>Withdraw</button>
+      <button disabled={!enabled} onClick={onActivity}>Activity</button>
+      {activeAddress && <p>Wallet: {activeAddress}</p>}
 
       {pendingRequest && (
         <ApprovalModal

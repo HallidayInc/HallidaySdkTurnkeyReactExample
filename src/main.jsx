@@ -5,6 +5,7 @@ window.Buffer = Buffer
 import { TurnkeyProvider } from '@turnkey/react-wallet-kit'
 import '@turnkey/react-wallet-kit/styles.css'
 import App from './App.jsx'
+import { DEFAULT_WALLET_NAME, DEFAULT_ETH_ACCOUNT } from './walletConfig.js'
 
 const TURNKEY_ORGANIZATION_ID = import.meta.env.VITE_TURNKEY_ORGANIZATION_ID
 const TURNKEY_AUTH_PROXY_CONFIG_ID = import.meta.env.VITE_TURNKEY_AUTH_PROXY_CONFIG_ID
@@ -21,6 +22,11 @@ if (
   alert('Error: Missing API keys. See .env file.')
 }
 
+const customWallet = {
+  walletName: DEFAULT_WALLET_NAME,
+  walletAccounts: [DEFAULT_ETH_ACCOUNT],
+}
+
 const turnkeyConfig = {
   organizationId: TURNKEY_ORGANIZATION_ID,
   authProxyConfigId: TURNKEY_AUTH_PROXY_CONFIG_ID,
@@ -28,17 +34,11 @@ const turnkeyConfig = {
     createSuborgParams: {
       passkeyAuth: {
         userName: 'Passkey User',
-        customWallet: {
-          walletName: 'Default Wallet',
-          walletAccounts: [
-            {
-              curve: 'CURVE_SECP256K1',
-              pathFormat: 'PATH_FORMAT_BIP32',
-              path: "m/44'/60'/0'/0/0",
-              addressFormat: 'ADDRESS_FORMAT_ETHEREUM',
-            },
-          ],
-        },
+        customWallet,
+      },
+      emailOtpAuth: {
+        userName: 'Email User',
+        customWallet,
       },
     },
   },
